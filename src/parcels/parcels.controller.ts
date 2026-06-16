@@ -47,4 +47,9 @@ export class ParcelsController {
   list(@Query(new ZodValidationPipe(ListParcelsQuerySchema)) query: ListParcelsQueryDto) {
     return this.service.listParcels(query);
   }
+
+  @Post(':id/retry')
+  retry(@Param('id') id: string) {
+    return this.service.retryParcel(id);
+  }
 }

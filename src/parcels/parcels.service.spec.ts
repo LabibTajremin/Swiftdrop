@@ -226,4 +226,45 @@ describe('ParcelsService', () => {
       expect(repo.findAll).toHaveBeenCalledWith(filters);
     });
   });
+
+  // ── retryParcel ─────────────────────────────────────────────────────────────
+
+  describe('retryParcel', () => {
+    it('logs requeued event, transitions to picked_up, and returns the updated parcel', async () => {
+      const failedParcel = makeParcel({ status: 'failed' });
+      const updatedParcel = makeParcel({ status: 'picked_up' });
+      repo.findById.mockResolvedValue(failedParcel);
+      repo.updateStatus.mockResolvedValue(updatedParcel);
+      repo.logEvent.mockResolvedValue(undefined);
+
+      const result = await service.retryParcel('parcel-uuid-1');
+
+      expect(repo.logEvent).toHaveBeenCalledWith('parcel-uuid-1', 'requeued');
+      expect(repo.updateStatus).toHaveBeenCalledWith('parcel-uuid-1', 'picked_up');
+      expect(repo.logEvent).toHaveBeenCalledWith('parcel-uuid-1', 'picked_up');
+      expect(repo.logEvent).toHaveBeenCalledTimes(2);
+      expect(result).toBe(updatedParcel);
+    });
+
+    it.each(['registered', 'picked_up', 'out_for_delivery', 'delivered'] as const)(
+      'throws InvalidStatusTransitionError when parcel status is %s (not failed)',
+      async (status) => {
+        repo.findById.mockResolvedValue(makeParcel({ status }));
+
+        await expect(service.retryParcel('parcel-uuid-1')).rejects.toThrow(
+          InvalidStatusTransitionError,
+        );
+        expect(repo.logEvent).not.toHaveBeenCalled();
+        expect(repo.updateStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    it('throws ResourceNotFoundError when parcel does not exist', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.retryParcel('missing-id')).rejects.toThrow(ResourceNotFoundError);
+      expect(repo.logEvent).not.toHaveBeenCalled();
+      expect(repo.updateStatus).not.toHaveBeenCalled();
+    });
+  });
 });
