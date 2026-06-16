@@ -1,0 +1,229 @@
+import { ConstraintViolationError } from '../common/exceptions/constraint-violation.error';
+import { InvalidStatusTransitionError } from '../common/exceptions/invalid-status-transition.error';
+import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
+import { CreateParcelDto } from './dto/parcel.schemas';
+import { DeliveryEvent, IParcelsRepository, Parcel } from './parcels.repository';
+import { ParcelsService } from './parcels.service';
+import { PARCEL_TRANSITIONS, ParcelStatus } from './status-machine';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+const ALL_STATUSES: ParcelStatus[] = [
+  'registered',
+  'picked_up',
+  'out_for_delivery',
+  'delivered',
+  'failed',
+];
+
+function makeParcel(overrides: Partial<Parcel> = {}): Parcel {
+  return {
+    id: 'parcel-uuid-1',
+    trackingNumber: 'TRK-001',
+    senderName: 'Alice',
+    senderAddress: '1 Sender St',
+    receiverName: 'Bob',
+    receiverAddress: '2 Receiver Ave',
+    status: 'registered',
+    assignedAgentId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function makeEvent(overrides: Partial<DeliveryEvent> = {}): DeliveryEvent {
+  return {
+    id: 'event-uuid-1',
+    parcelId: 'parcel-uuid-1',
+    eventType: 'registered',
+    notes: null,
+    occurredAt: new Date(),
+    ...overrides,
+  };
+}
+
+function makeDto(overrides: Partial<CreateParcelDto> = {}): CreateParcelDto {
+  return {
+    tracking_number: 'TRK-001',
+    sender_name: 'Alice',
+    sender_address: '1 Sender St',
+    receiver_name: 'Bob',
+    receiver_address: '2 Receiver Ave',
+    ...overrides,
+  };
+}
+
+function makeMockRepo(): jest.Mocked<IParcelsRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByTrackingNumber: jest.fn(),
+    findAll: jest.fn(),
+    updateStatus: jest.fn(),
+    assignAgent: jest.fn(),
+    logEvent: jest.fn(),
+    getHistory: jest.fn(),
+  };
+}
+
+// ── tests ─────────────────────────────────────────────────────────────────────
+
+describe('ParcelsService', () => {
+  let service: ParcelsService;
+  let repo: jest.Mocked<IParcelsRepository>;
+
+  beforeEach(() => {
+    repo = makeMockRepo();
+    service = new ParcelsService(repo);
+  });
+
+  // ── registerParcel ──────────────────────────────────────────────────────────
+
+  describe('registerParcel', () => {
+    it('creates the parcel and logs a registered event', async () => {
+      const parcel = makeParcel();
+      repo.create.mockResolvedValue(parcel);
+      repo.logEvent.mockResolvedValue(undefined);
+
+      const result = await service.registerParcel(makeDto());
+
+      expect(repo.create).toHaveBeenCalledWith(makeDto());
+      expect(repo.logEvent).toHaveBeenCalledWith(parcel.id, 'registered');
+      expect(result).toBe(parcel);
+    });
+
+    it('propagates ConstraintViolationError on duplicate tracking number', async () => {
+      repo.create.mockRejectedValue(
+        new ConstraintViolationError("Tracking number 'TRK-001' is already in use"),
+      );
+
+      await expect(service.registerParcel(makeDto())).rejects.toThrow(ConstraintViolationError);
+      expect(repo.logEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not log an event if create fails', async () => {
+      repo.create.mockRejectedValue(new Error('db error'));
+      await expect(service.registerParcel(makeDto())).rejects.toThrow();
+      expect(repo.logEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── updateStatus — full 5×5 transition matrix ──────────────────────────────
+
+  describe('updateStatus — transition matrix', () => {
+    const cases: [ParcelStatus, ParcelStatus, boolean][] = ALL_STATUSES.flatMap((from) =>
+      ALL_STATUSES.map((to): [ParcelStatus, ParcelStatus, boolean] => [
+        from,
+        to,
+        PARCEL_TRANSITIONS[from].includes(to),
+      ]),
+    );
+
+    it.each(cases)('%s -> %s: %s', async (from, to, valid) => {
+      repo.findById.mockResolvedValue(makeParcel({ status: from }));
+      repo.updateStatus.mockResolvedValue(makeParcel({ status: to }));
+      repo.logEvent.mockResolvedValue(undefined);
+
+      if (valid) {
+        await expect(service.updateStatus('parcel-uuid-1', to)).resolves.toBeDefined();
+        expect(repo.updateStatus).toHaveBeenCalledWith('parcel-uuid-1', to);
+        expect(repo.logEvent).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(service.updateStatus('parcel-uuid-1', to)).rejects.toThrow(
+          InvalidStatusTransitionError,
+        );
+        expect(repo.updateStatus).not.toHaveBeenCalled();
+        expect(repo.logEvent).not.toHaveBeenCalled();
+      }
+    });
+
+    // Explicitly called out in the assignment brief
+    it('rejects registered -> delivered specifically', async () => {
+      repo.findById.mockResolvedValue(makeParcel({ status: 'registered' }));
+      await expect(service.updateStatus('parcel-uuid-1', 'delivered')).rejects.toThrow(
+        InvalidStatusTransitionError,
+      );
+      await expect(service.updateStatus('parcel-uuid-1', 'delivered')).rejects.toThrow(
+        'registered -> delivered',
+      );
+    });
+  });
+
+  describe('updateStatus — event type mapping', () => {
+    const validCases: [ParcelStatus, ParcelStatus, string][] = [
+      ['registered', 'picked_up', 'picked_up'],
+      ['registered', 'failed', 'failed_attempt'],
+      ['picked_up', 'out_for_delivery', 'out_for_delivery'],
+      ['picked_up', 'failed', 'failed_attempt'],
+      ['out_for_delivery', 'delivered', 'delivered'],
+      ['out_for_delivery', 'failed', 'failed_attempt'],
+      ['failed', 'picked_up', 'picked_up'],
+    ];
+
+    it.each(validCases)('%s -> %s logs event_type %s', async (from, to, expectedEvent) => {
+      repo.findById.mockResolvedValue(makeParcel({ status: from }));
+      repo.updateStatus.mockResolvedValue(makeParcel({ status: to }));
+      repo.logEvent.mockResolvedValue(undefined);
+
+      await service.updateStatus('parcel-uuid-1', to);
+      expect(repo.logEvent).toHaveBeenCalledWith('parcel-uuid-1', expectedEvent);
+    });
+  });
+
+  describe('updateStatus — not found', () => {
+    it('throws ResourceNotFoundError when parcel does not exist', async () => {
+      repo.findById.mockResolvedValue(null);
+      await expect(service.updateStatus('missing-id', 'picked_up')).rejects.toThrow(
+        ResourceNotFoundError,
+      );
+      expect(repo.updateStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getTrackingHistory ──────────────────────────────────────────────────────
+
+  describe('getTrackingHistory', () => {
+    it('returns the delivery events for a parcel', async () => {
+      const parcel = makeParcel();
+      const events = [makeEvent(), makeEvent({ id: 'event-uuid-2', eventType: 'picked_up' })];
+      repo.findById.mockResolvedValue(parcel);
+      repo.getHistory.mockResolvedValue(events);
+
+      const result = await service.getTrackingHistory(parcel.id);
+
+      expect(repo.getHistory).toHaveBeenCalledWith(parcel.id);
+      expect(result).toBe(events);
+    });
+
+    it('throws ResourceNotFoundError for unknown id', async () => {
+      repo.findById.mockResolvedValue(null);
+      await expect(service.getTrackingHistory('missing-id')).rejects.toThrow(
+        ResourceNotFoundError,
+      );
+      expect(repo.getHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── listParcels ─────────────────────────────────────────────────────────────
+
+  describe('listParcels', () => {
+    it('delegates to repo.findAll and wraps with pagination metadata', async () => {
+      const parcelsData = [makeParcel(), makeParcel({ id: 'parcel-uuid-2', trackingNumber: 'TRK-002' })];
+      repo.findAll.mockResolvedValue({ data: parcelsData, total: 2 });
+
+      const filters = { page: 1, limit: 20 };
+      const result = await service.listParcels(filters);
+
+      expect(repo.findAll).toHaveBeenCalledWith(filters);
+      expect(result).toEqual({ data: parcelsData, total: 2, page: 1, limit: 20 });
+    });
+
+    it('passes filters through to the repository', async () => {
+      repo.findAll.mockResolvedValue({ data: [], total: 0 });
+      const filters = { status: 'registered' as ParcelStatus, page: 2, limit: 10 };
+      await service.listParcels(filters);
+      expect(repo.findAll).toHaveBeenCalledWith(filters);
+    });
+  });
+});

@@ -27,6 +27,7 @@ export type UpdateParcelStatusDto = z.infer<typeof UpdateParcelStatusSchema>;
 export const ListParcelsQuerySchema = z.object({
   status: z.enum(PARCEL_STATUSES).optional(),
   agent_id: z.string().uuid('agent_id must be a valid UUID').optional(),
+  sender_name: z.string().min(1).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
