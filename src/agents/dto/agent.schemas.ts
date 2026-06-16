@@ -15,3 +15,9 @@ export const AssignParcelSchema = z.object({
   agent_id: z.string().uuid('agent_id must be a valid UUID'),
 });
 export type AssignParcelDto = z.infer<typeof AssignParcelSchema>;
+
+// Used by POST /agents/:id/assign — the agent comes from the route param
+export const AssignParcelBodySchema = z.object({
+  parcel_id: z.string().uuid('parcel_id must be a valid UUID'),
+});
+export type AssignParcelBodyDto = z.infer<typeof AssignParcelBodySchema>;

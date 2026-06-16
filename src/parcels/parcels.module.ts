@@ -12,6 +12,6 @@ import { ParcelsController } from './parcels.controller';
     ParcelsService,
   ],
   controllers: [ParcelsController],
-  exports: [ParcelsService],
+  exports: [ParcelsService, PARCELS_REPOSITORY],
 })
 export class ParcelsModule {}

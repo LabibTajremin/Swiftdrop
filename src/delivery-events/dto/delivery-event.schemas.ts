@@ -10,6 +10,7 @@ export const DELIVERY_EVENT_TYPES = [
 ] as const;
 
 export const CreateEventSchema = z.object({
+  parcel_id: z.string().uuid({ message: 'parcel_id must be a valid UUID' }),
   event_type: z.enum(DELIVERY_EVENT_TYPES, {
     errorMap: () => ({ message: `event_type must be one of: ${DELIVERY_EVENT_TYPES.join(', ')}` }),
   }),
