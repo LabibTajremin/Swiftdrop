@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
 import { InvalidStatusTransitionError } from '../common/exceptions/invalid-status-transition.error';
-import { CreateParcelDto, ListParcelsQueryDto, UpdateParcelStatusDto } from './dto/parcel.schemas';
+import { CreateParcelDto, ListParcelsQueryDto } from './dto/parcel.schemas';
 import {
   DeliveryEvent,
   DeliveryEventType,
@@ -53,10 +53,6 @@ export class ParcelsService {
   ): Promise<{ data: Parcel[]; total: number; page: number; limit: number }> {
     const { data, total } = await this.repo.findAll(filters);
     return { data, total, page: filters.page, limit: filters.limit };
-  }
-
-  async updateStatusDto(id: string, dto: UpdateParcelStatusDto): Promise<Parcel> {
-    return this.updateStatus(id, dto.status);
   }
 
   async retryParcel(id: string): Promise<Parcel> {

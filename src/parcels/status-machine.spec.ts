@@ -24,7 +24,7 @@ function isValid(from: ParcelStatus, to: ParcelStatus): boolean {
   return VALID_PAIRS.has(`${from}->${to}`);
 }
 
-// Build the full 5x5 matrix once
+// Build the full 5×5 matrix so every cell is covered automatically as statuses are added.
 const MATRIX: [ParcelStatus, ParcelStatus, boolean][] = ALL_STATUSES.flatMap((from) =>
   ALL_STATUSES.map((to): [ParcelStatus, ParcelStatus, boolean] => [from, to, isValid(from, to)]),
 );
@@ -52,7 +52,7 @@ describe('StatusMachine', () => {
       expect(() => assertValidTransition(from, to)).toThrow(`${from} -> ${to}`);
     });
 
-    // Explicitly called out in the assignment brief
+    // Given: parcels must move through each stage — skipping directly to delivered is not allowed.
     it('rejects registered -> delivered (cannot skip intermediate states)', () => {
       expect(() => assertValidTransition('registered', 'delivered')).toThrow(
         InvalidStatusTransitionError,

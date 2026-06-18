@@ -6,16 +6,14 @@ import { CreateAgentDto } from './dto/agent.schemas';
 import { Agent, AGENTS_REPOSITORY, IAgentsRepository } from './agents.repository';
 
 /**
- * Assignment rules (V6):
+ * Parcel assignment has two prerequisites:
  *
- * 1. Agent must have `is_available = true`.
- *    An unavailable agent is off-duty or at capacity; dispatching to them
- *    would break real-world delivery SLAs.
+ * 1. Agent must be available (`is_available = true`).
+ *    Dispatching to an off-duty agent would break delivery SLAs.
  *
- * 2. Parcel must have `status = 'registered'`.
- *    Once a parcel enters the delivery pipeline (picked_up or later) it has
- *    an active event trail tied to the current agent.  Reassigning mid-transit
- *    would produce an inconsistent delivery history.
+ * 2. Parcel must be in `registered` status.
+ *    Once pickup is underway the event trail is tied to the current agent;
+ *    reassigning mid-transit would leave an inconsistent history.
  */
 @Injectable()
 export class AgentsService {

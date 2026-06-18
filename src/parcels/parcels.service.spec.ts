@@ -109,7 +109,7 @@ describe('ParcelsService', () => {
     });
   });
 
-  // ── updateStatus — full 5×5 transition matrix ──────────────────────────────
+  // ── updateStatus ────────────────────────────────────────────────────────────
 
   describe('updateStatus — transition matrix', () => {
     const cases: [ParcelStatus, ParcelStatus, boolean][] = ALL_STATUSES.flatMap((from) =>
@@ -138,7 +138,7 @@ describe('ParcelsService', () => {
       }
     });
 
-    // Explicitly called out in the assignment brief
+    // Given: a parcel cannot jump directly from registered to delivered.
     it('rejects registered -> delivered specifically', async () => {
       repo.findById.mockResolvedValue(makeParcel({ status: 'registered' }));
       await expect(service.updateStatus('parcel-uuid-1', 'delivered')).rejects.toThrow(

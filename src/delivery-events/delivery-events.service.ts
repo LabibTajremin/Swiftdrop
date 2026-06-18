@@ -34,7 +34,7 @@ export class DeliveryEventsService {
 
     const targetStatus = EVENT_TO_STATUS[dto.event_type];
     if (targetStatus) {
-      // Delegates status update and event logging to ParcelsService (single source of truth).
+      // Route through ParcelsService so transition validation is never bypassed.
       return this.parcelsService.updateStatus(dto.parcel_id, targetStatus);
     }
 
