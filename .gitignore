@@ -4,6 +4,7 @@
 /build
 /tmp
 /coverage
+/Documentation
 
 # Logs
 logs
@@ -17,8 +18,12 @@ lerna-debug.log*
 # dotenv environment variable files
 .env
 .env.development
+.env.dev
 .env.test
 .env.production
+.env.prod
+.env.staging
+.env.local
 
 # temp directory
 .temp

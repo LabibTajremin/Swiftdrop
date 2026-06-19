@@ -42,15 +42,48 @@ pnpm install
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your values (see [Environment Variables](#environment-variables) below).
+Open `.env` and set at minimum:
 
-### 3. Start PostgreSQL (skip if you already have one running)
+```env
+DATABASE_URL=postgresql://admin:12345@localhost:5432/swiftdrop
+API_KEY=localdev123
+PORT=3000
+```
+
+> If you use the Docker setup below, these exact values work with no changes.
+
+### 3. Start PostgreSQL with Docker
+
+> **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) must be installed and running.
 
 ```bash
+# Start the PostgreSQL container in the background
 docker compose up -d postgres
 ```
 
-This starts a PostgreSQL 16 container on port `5432` using the credentials in `docker-compose.yml`. The default `DATABASE_URL` in `.env.example` matches those credentials — no changes needed if you use Docker.
+This starts a PostgreSQL 16 container with:
+
+| Setting | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `swiftdrop` |
+| Username | `admin` |
+| Password | `12345` |
+
+**Verify the container is running:**
+
+```bash
+docker compose ps
+```
+
+You should see `postgres` with status `running`.
+
+**View database logs (useful for troubleshooting):**
+
+```bash
+docker compose logs postgres
+```
 
 ### 4. Run migrations
 
@@ -58,13 +91,37 @@ This starts a PostgreSQL 16 container on port `5432` using the credentials in `d
 pnpm drizzle-kit migrate
 ```
 
+This creates the `agents`, `parcels`, and `delivery_events` tables in the database. Migration files live in `src/db/migrations/`.
+
 ### 5. Start the development server
 
 ```bash
 pnpm start:dev
 ```
 
-The API is available at `http://localhost:3000` (or the `PORT` you set).
+The API is available at `http://localhost:3000`.
+
+> The server auto-restarts on file changes in development mode.
+
+---
+
+## Stopping and Resetting
+
+**Stop the database container (data is preserved):**
+
+```bash
+docker compose down
+```
+
+**Wipe the database completely and start fresh (destroys all data):**
+
+```bash
+docker compose down -v
+docker compose up -d postgres
+pnpm drizzle-kit migrate
+```
+
+> Use `down -v` when you want a clean slate — for example if you changed the DB credentials or hit a migration conflict.
 
 ---
 
@@ -75,6 +132,10 @@ The API is available at `http://localhost:3000` (or the `PORT` you set).
 | `DATABASE_URL` | Yes | — | PostgreSQL connection string (`postgresql://user:pass@host:5432/db`) |
 | `API_KEY` | Yes | — | Shared secret; must be sent in every request as `x-api-key: <value>` |
 | `PORT` | No | `3000` | Port the HTTP server listens on |
+| `DB_POOL_MAX` | No | `10` | Max DB connections in the pool |
+| `DB_POOL_MIN` | No | `2` | Min idle DB connections kept open |
+| `DB_IDLE_TIMEOUT_MS` | No | `30000` | Close idle connections after N ms |
+| `DB_CONN_TIMEOUT_MS` | No | `3000` | Error if no free connection available after N ms |
 
 ---
 
