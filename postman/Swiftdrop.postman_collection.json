@@ -1,0 +1,1291 @@
+{
+  "info": {
+    "_postman_id": "c0ffee00-d00d-beef-cafe-000000000001",
+    "name": "Swiftdrop API",
+    "description": "Complete test suite for the Swiftdrop last-mile delivery tracking API.\n\n## Setup\n1. Run `pnpm seed` (or `npm run seed`) to insert demo data.\n2. Import this collection into Postman.\n3. The `baseUrl` and `apiKey` variables are pre-configured.\n\n## Seed data overview\n\n### Agents\n| Variable | Name | Phone | Status |\n|---|---|---|---|\n| {{agentMarcus}} | Marcus Webb | +44-demo-0001 | UNAVAILABLE (active deliveries) |\n| {{agentSofia}} | Sofia Patel | +44-demo-0002 | available |\n| {{agentJordan}} | Jordan Okafor | +44-demo-0003 | UNAVAILABLE (off duty) |\n| {{agentPriya}} | Priya Nair | +44-demo-0004 | available (2 completed) |\n| {{agentElias}} | Elias Frost | +44-demo-0005 | available (no deliveries) |\n\n### Parcels\n| Variable | Tracking | Status | Agent |\n|---|---|---|---|\n| {{parcel1}} | TRK-2026-0001 | registered | — |\n| {{parcel2}} | TRK-2026-0002 | registered | — |\n| {{parcel3}} | TRK-2026-0003 | picked_up | Marcus Webb |\n| {{parcel4}} | TRK-2026-0004 | out_for_delivery | Marcus Webb |\n| {{parcel5}} | TRK-2026-0005 | delivered | Priya Nair (4 events) |\n| {{parcel6}} | TRK-2026-0006 | delivered | Priya Nair (4 events) |\n| {{parcel7}} | TRK-2026-0007 | failed | Marcus Webb |\n| {{parcel8}} | TRK-2026-0008 | failed | — |\n\n## Re-seeding\nMutating requests (assign, retry, update status, log event) change DB state. Re-run `pnpm seed` to reset.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "x-api-key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "apiKey", "value": "sd_7f3a9c2e1b854d06a8f5e3c7d2b1094f", "type": "string" },
+    { "key": "agentMarcus", "value": "a1000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "agentSofia",  "value": "a2000000-0000-0000-0000-000000000002", "type": "string" },
+    { "key": "agentJordan", "value": "a3000000-0000-0000-0000-000000000003", "type": "string" },
+    { "key": "agentPriya",  "value": "a4000000-0000-0000-0000-000000000004", "type": "string" },
+    { "key": "agentElias",  "value": "a5000000-0000-0000-0000-000000000005", "type": "string" },
+    { "key": "parcel1", "value": "b1000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "parcel2", "value": "b2000000-0000-0000-0000-000000000002", "type": "string" },
+    { "key": "parcel3", "value": "b3000000-0000-0000-0000-000000000003", "type": "string" },
+    { "key": "parcel4", "value": "b4000000-0000-0000-0000-000000000004", "type": "string" },
+    { "key": "parcel5", "value": "b5000000-0000-0000-0000-000000000005", "type": "string" },
+    { "key": "parcel6", "value": "b6000000-0000-0000-0000-000000000006", "type": "string" },
+    { "key": "parcel7", "value": "b7000000-0000-0000-0000-000000000007", "type": "string" },
+    { "key": "parcel8", "value": "b8000000-0000-0000-0000-000000000008", "type": "string" },
+    { "key": "missingId", "value": "00000000-0000-0000-0000-000000000099", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth Tests",
+      "item": [
+        {
+          "name": "No API Key → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentMarcus}}/deliveries",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentMarcus}}", "deliveries"]
+            },
+            "description": "Request with no x-api-key header. Must return 401."
+          }
+        },
+        {
+          "name": "Wrong API Key → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "x-api-key", "type": "string" },
+                { "key": "value", "value": "wrong_key_abc123", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentMarcus}}/deliveries",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentMarcus}}", "deliveries"]
+            },
+            "description": "Request with an incorrect API key. Must return 401."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "Create Agent → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Agent has id and is_available=true', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.have.property('id');",
+                  "  pm.expect(b.is_available).to.be.true;",
+                  "  pm.expect(b.name).to.equal('Alex Turner');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alex Turner\",\n  \"phone\": \"+44 7700 900123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents"]
+            }
+          }
+        },
+        {
+          "name": "Create Agent - Validation Error (missing phone) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alex Turner\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents"]
+            },
+            "description": "Phone field is required. Zod validation should reject this with 400."
+          }
+        },
+        {
+          "name": "Set Agent Available (Marcus Webb) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('is_available is now true', () => {",
+                  "  pm.expect(pm.response.json().is_available).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentMarcus}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentMarcus}}", "availability"]
+            },
+            "description": "Marcus Webb is seeded as unavailable. This sets him back to available."
+          }
+        },
+        {
+          "name": "Set Agent Unavailable (Sofia Patel) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('is_available is now false', () => {",
+                  "  pm.expect(pm.response.json().is_available).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentSofia}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentSofia}}", "availability"]
+            }
+          }
+        },
+        {
+          "name": "Assign Parcel - Agent Unavailable (Jordan + parcel2) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel2}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentJordan}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentJordan}}", "assign"]
+            },
+            "description": "Jordan Okafor is seeded as unavailable. ConstraintViolationError → 409."
+          }
+        },
+        {
+          "name": "Assign Parcel - Parcel Not Registered (Sofia + parcel3 is picked_up) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel3}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentSofia}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentSofia}}", "assign"]
+            },
+            "description": "parcel3 is in picked_up status. Only registered parcels can be assigned."
+          }
+        },
+        {
+          "name": "Assign Parcel - Agent Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel1}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{missingId}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{missingId}}", "assign"]
+            }
+          }
+        },
+        {
+          "name": "Assign Parcel - Parcel Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{missingId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentSofia}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentSofia}}", "assign"]
+            }
+          }
+        },
+        {
+          "name": "Assign Parcel - Success (Sofia + parcel1) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel has agent assigned', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.assigned_agent_id).to.equal(pm.collectionVariables.get('agentSofia'));",
+                  "  pm.expect(b.status).to.equal('registered');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel1}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentSofia}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentSofia}}", "assign"]
+            },
+            "description": "Sofia is available and parcel1 is registered. Should succeed and set assigned_agent_id."
+          }
+        },
+        {
+          "name": "Get Active Deliveries (Marcus Webb — parcel3 + parcel4) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array of active parcels', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.be.an('array');",
+                  "  pm.expect(b.length).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentMarcus}}/deliveries",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentMarcus}}", "deliveries"]
+            },
+            "description": "Marcus has parcel3 (picked_up) and parcel4 (out_for_delivery) assigned."
+          }
+        },
+        {
+          "name": "Get Active Deliveries - No Deliveries (Elias Frost) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns empty array', () => {",
+                  "  pm.expect(pm.response.json()).to.be.an('array').with.lengthOf(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{agentElias}}/deliveries",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{agentElias}}", "deliveries"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Deliveries - Agent Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/agents/{{missingId}}/deliveries",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "{{missingId}}", "deliveries"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parcels",
+      "item": [
+        {
+          "name": "Create Parcel → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Parcel created with registered status', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.have.property('id');",
+                  "  pm.expect(b.status).to.equal('registered');",
+                  "  pm.expect(b.assigned_agent_id).to.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tracking_number\": \"TRK-NEW-00001\",\n  \"sender_name\": \"Rapid Retail Ltd\",\n  \"sender_address\": \"77 Dock Street, Hull HU1 3DH\",\n  \"receiver_name\": \"Oliver Marsh\",\n  \"receiver_address\": \"14 Harbour View, Portsmouth PO1 2AA\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"]
+            }
+          }
+        },
+        {
+          "name": "Create Parcel - Duplicate Tracking Number → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tracking_number\": \"TRK-2026-0001\",\n  \"sender_name\": \"Acme Corp\",\n  \"sender_address\": \"10 Commercial St, London E1 6RF\",\n  \"receiver_name\": \"James Hooper\",\n  \"receiver_address\": \"47 Maple Ave, Manchester M1 2AB\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"]
+            },
+            "description": "TRK-2026-0001 already exists in the seed data. UNIQUE constraint → 409."
+          }
+        },
+        {
+          "name": "Create Parcel - Validation Error (missing receiver_address) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tracking_number\": \"TRK-INVALID-001\",\n  \"sender_name\": \"Test Sender\",\n  \"sender_address\": \"1 Test St\",\n  \"receiver_name\": \"Test Receiver\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"]
+            }
+          }
+        },
+        {
+          "name": "List All Parcels → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has data, total, page, limit', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.have.property('data');",
+                  "  pm.expect(b).to.have.property('total');",
+                  "  pm.expect(b).to.have.property('page');",
+                  "  pm.expect(b).to.have.property('limit');",
+                  "  pm.expect(b.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"]
+            }
+          }
+        },
+        {
+          "name": "List Parcels - Filter by Status (registered) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All results are registered', () => {",
+                  "  const b = pm.response.json();",
+                  "  b.data.forEach(p => pm.expect(p.status).to.equal('registered'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels?status=registered",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"],
+              "query": [
+                { "key": "status", "value": "registered", "enabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Parcels - Filter by Agent (Marcus Webb) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All results belong to Marcus', () => {",
+                  "  const b = pm.response.json();",
+                  "  const agentId = pm.collectionVariables.get('agentMarcus');",
+                  "  b.data.forEach(p => pm.expect(p.assigned_agent_id).to.equal(agentId));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels?agent_id={{agentMarcus}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"],
+              "query": [
+                { "key": "agent_id", "value": "{{agentMarcus}}", "enabled": true }
+              ]
+            },
+            "description": "Marcus Webb has parcel3 (picked_up), parcel4 (out_for_delivery), parcel7 (failed) assigned."
+          }
+        },
+        {
+          "name": "List Parcels - Pagination (page=1, limit=3) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns at most 3 results per page', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.data.length).to.be.at.most(3);",
+                  "  pm.expect(b.page).to.equal(1);",
+                  "  pm.expect(b.limit).to.equal(3);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels?page=1&limit=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"],
+              "query": [
+                { "key": "page", "value": "1", "enabled": true },
+                { "key": "limit", "value": "3", "enabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Parcels - Filter by Sender Name → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels?sender_name=Acme",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels"],
+              "query": [
+                { "key": "sender_name", "value": "Acme", "enabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Status - Invalid Transition (parcel1: registered → delivered) → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422', () => pm.response.to.have.status(422));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"delivered\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel1}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel1}}", "status"]
+            },
+            "description": "parcel1 is registered. registered → delivered is not a valid transition. InvalidStatusTransitionError → 422."
+          }
+        },
+        {
+          "name": "Update Status - Valid Transition (parcel3: picked_up → out_for_delivery) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel status updated', () => {",
+                  "  pm.expect(pm.response.json().status).to.equal('out_for_delivery');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"out_for_delivery\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel3}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel3}}", "status"]
+            },
+            "description": "parcel3 is picked_up. picked_up → out_for_delivery is valid."
+          }
+        },
+        {
+          "name": "Update Status - Parcel Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"picked_up\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{missingId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{missingId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Get Parcel History (parcel5 — 4 events) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns 4 events in chronological order', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.be.an('array').with.lengthOf(4);",
+                  "  pm.expect(b[0].event_type).to.equal('registered');",
+                  "  pm.expect(b[3].event_type).to.equal('delivered');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel5}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel5}}", "history"]
+            },
+            "description": "parcel5 (TRK-2026-0005) has a complete lifecycle: registered → picked_up → out_for_delivery → delivered."
+          }
+        },
+        {
+          "name": "Get Parcel History - Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{missingId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{missingId}}", "history"]
+            }
+          }
+        },
+        {
+          "name": "Retry Parcel - Not in Failed Status (parcel1 is registered) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel1}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel1}}", "retry"]
+            },
+            "description": "parcel1 is registered, not failed. ConstraintViolationError → 409."
+          }
+        },
+        {
+          "name": "Retry Parcel - New Agent Unavailable (parcel8 + Jordan) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": \"{{agentJordan}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel8}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel8}}", "retry"]
+            },
+            "description": "parcel8 is failed and Jordan Okafor is unavailable. ConstraintViolationError → 409. parcel8 stays failed."
+          }
+        },
+        {
+          "name": "Retry Parcel - Without Reassign (parcel7) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel status reset to picked_up', () => {",
+                  "  pm.expect(pm.response.json().status).to.equal('picked_up');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel7}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel7}}", "retry"]
+            },
+            "description": "parcel7 is failed. No agent_id provided — retries with current assigned agent (Marcus Webb). No availability check performed."
+          }
+        },
+        {
+          "name": "Retry Parcel - With New Agent (parcel8 + Sofia Patel) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel reassigned to Sofia and reset to picked_up', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.status).to.equal('picked_up');",
+                  "  pm.expect(b.assigned_agent_id).to.equal(pm.collectionVariables.get('agentSofia'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": \"{{agentSofia}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel8}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel8}}", "retry"]
+            },
+            "description": "parcel8 is failed with no assigned agent. Sofia Patel (available) is assigned as new agent."
+          }
+        },
+        {
+          "name": "Retry Parcel - Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{missingId}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{missingId}}", "retry"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delivery Events",
+      "item": [
+        {
+          "name": "Log Event - Informational (requeued on parcel2) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel status unchanged (still registered)', () => {",
+                  "  pm.expect(pm.response.json().status).to.equal('registered');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel2}}\",\n  \"event_type\": \"requeued\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/delivery-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-events"]
+            },
+            "description": "'requeued' is informational — it does not trigger a status transition. Parcel2 stays registered."
+          }
+        },
+        {
+          "name": "Log Event - Status Changing (picked_up on parcel2) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Parcel status advanced to picked_up', () => {",
+                  "  pm.expect(pm.response.json().status).to.equal('picked_up');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel2}}\",\n  \"event_type\": \"picked_up\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/delivery-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-events"]
+            },
+            "description": "parcel2 is registered. Logging 'picked_up' event triggers ParcelsService.updateStatus → registered→picked_up."
+          }
+        },
+        {
+          "name": "Log Event - With Notes and occurred_at (requeued on parcel3) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel3}}\",\n  \"event_type\": \"requeued\",\n  \"notes\": \"Held at depot — recipient requested delay\",\n  \"occurred_at\": \"2026-06-20T14:30:00.000Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/delivery-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-events"]
+            },
+            "description": "Tests that notes and occurred_at fields are accepted. 'requeued' is informational so parcel3 status stays picked_up."
+          }
+        },
+        {
+          "name": "Log Event - Invalid Status Transition (out_for_delivery on parcel1 which is registered) → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422', () => pm.response.to.have.status(422));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{parcel1}}\",\n  \"event_type\": \"out_for_delivery\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/delivery-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-events"]
+            },
+            "description": "parcel1 is registered. registered → out_for_delivery is not valid (must go through picked_up first). InvalidStatusTransitionError → 422."
+          }
+        },
+        {
+          "name": "Log Event - Parcel Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcel_id\": \"{{missingId}}\",\n  \"event_type\": \"picked_up\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/delivery-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-events"]
+            }
+          }
+        },
+        {
+          "name": "Get Parcel Events via /delivery-events (parcel5 — 4 events) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns 4 events', () => {",
+                  "  pm.expect(pm.response.json()).to.be.an('array').with.lengthOf(4);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{parcel5}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{parcel5}}", "events"]
+            },
+            "description": "GET /parcels/:id/events — delivery events controller endpoint. Same data as /history."
+          }
+        },
+        {
+          "name": "Get Parcel Events - Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parcels/{{missingId}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["parcels", "{{missingId}}", "events"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reporting",
+      "item": [
+        {
+          "name": "Agent Report - Priya Nair (2 deliveries) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Report has expected shape', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b).to.have.property('agent_id');",
+                  "  pm.expect(b).to.have.property('total_deliveries');",
+                  "  pm.expect(b).to.have.property('success_rate');",
+                  "  pm.expect(b).to.have.property('avg_pickup_to_delivery_ms');",
+                  "  pm.expect(b.total_deliveries).to.equal(2);",
+                  "  pm.expect(b.success_rate).to.equal(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/agents/{{agentPriya}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "agents", "{{agentPriya}}"]
+            },
+            "description": "Priya Nair completed 2 deliveries (parcel5, parcel6). success_rate=1.0, avg_pickup_to_delivery calculated from event timestamps."
+          }
+        },
+        {
+          "name": "Agent Report - Elias Frost (no deliveries) → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('total_deliveries is 0 and avg is null', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.total_deliveries).to.equal(0);",
+                  "  pm.expect(b.avg_pickup_to_delivery_ms).to.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/agents/{{agentElias}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "agents", "{{agentElias}}"]
+            }
+          }
+        },
+        {
+          "name": "Agent Report - Not Found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/agents/{{missingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "agents", "{{missingId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

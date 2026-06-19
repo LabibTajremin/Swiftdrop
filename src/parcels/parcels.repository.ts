@@ -135,7 +135,7 @@ export class DrizzleParcelsRepository implements IParcelsRepository {
   }
 
   async logEvent(parcelId: string, eventType: DeliveryEventType, notes?: string): Promise<void> {
-    await this.db.insert(schema.deliveryEvents).values({ parcelId, eventType, notes });
+    await this.db.insert(schema.deliveryEvents).values({ parcelId, eventType, notes, occurredAt: new Date() });
   }
 
   async getHistory(parcelId: string): Promise<DeliveryEvent[]> {

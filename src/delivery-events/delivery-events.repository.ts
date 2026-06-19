@@ -23,7 +23,7 @@ export class DrizzleDeliveryEventsRepository implements IDeliveryEventsRepositor
   ): Promise<DeliveryEvent> {
     const [event] = await this.db
       .insert(schema.deliveryEvents)
-      .values({ parcelId, eventType, notes, ...(occurredAt ? { occurredAt } : {}) })
+      .values({ parcelId, eventType, notes, occurredAt: occurredAt ?? new Date() })
       .returning();
     return event;
   }

@@ -15,7 +15,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "drizzle-kit": "drizzle-kit"
+    "drizzle-kit": "drizzle-kit",
+    "seed": "ts-node src/db/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

@@ -36,7 +36,7 @@ export class DeliveryEventsService {
       // #endregion
     }
 
-    const occurredAt = dto.occurred_at ? new Date(dto.occurred_at) : undefined;
+    const occurredAt = dto.occurred_at ? new Date(dto.occurred_at) : new Date();
     await this.repo.create(dto.parcel_id, dto.event_type, dto.notes, occurredAt);
     return parcel;
   }

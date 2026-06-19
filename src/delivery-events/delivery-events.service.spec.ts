@@ -118,10 +118,20 @@ describe('DeliveryEventsService', () => {
         const parcel = makeParcel();
         parcelsService.findParcelById.mockResolvedValue(parcel);
         eventsRepo.create.mockResolvedValue(makeEvent({ eventType: 'requeued' }));
+        const before = new Date();
 
         const result = await service.logEvent({ parcel_id: 'parcel-uuid-1', event_type: 'requeued' });
 
-        expect(eventsRepo.create).toHaveBeenCalledWith('parcel-uuid-1', 'requeued', undefined, undefined);
+        const after = new Date();
+        expect(eventsRepo.create).toHaveBeenCalledWith(
+          'parcel-uuid-1',
+          'requeued',
+          undefined,
+          expect.any(Date),
+        );
+        const passedDate: Date = (eventsRepo.create as jest.Mock).mock.calls[0][3];
+        expect(passedDate.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(passedDate.getTime()).toBeLessThanOrEqual(after.getTime());
         expect(parcelsService.updateStatus).not.toHaveBeenCalled();
         expect(result).toBe(parcel);
       });
@@ -140,7 +150,7 @@ describe('DeliveryEventsService', () => {
           'parcel-uuid-1',
           'requeued',
           'Parcel requeued due to address error',
-          undefined,
+          expect.any(Date),
         );
       });
 
