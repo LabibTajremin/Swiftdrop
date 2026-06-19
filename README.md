@@ -103,25 +103,6 @@ The API is available at `http://localhost:3000`.
 
 > The server auto-restarts on file changes in development mode.
 
----
-
-## Stopping and Resetting
-
-**Stop the database container (data is preserved):**
-
-```bash
-docker compose down
-```
-
-**Wipe the database completely and start fresh (destroys all data):**
-
-```bash
-docker compose down -v
-docker compose up -d postgres
-pnpm drizzle-kit migrate
-```
-
-> Use `down -v` when you want a clean slate — for example if you changed the DB credentials or hit a migration conflict.
 
 ---
 
