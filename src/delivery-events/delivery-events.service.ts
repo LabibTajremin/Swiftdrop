@@ -1,11 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
 import {
   DeliveryEvent,
   DeliveryEventType,
-  IParcelsRepository,
   Parcel,
-  PARCELS_REPOSITORY,
 } from '../parcels/parcels.repository';
 import { ParcelsService } from '../parcels/parcels.service';
 import { ParcelStatus } from '../parcels/status-machine';
@@ -25,17 +22,18 @@ export class DeliveryEventsService {
   constructor(
     @Inject(DELIVERY_EVENTS_REPOSITORY) private readonly repo: IDeliveryEventsRepository,
     private readonly parcelsService: ParcelsService,
-    @Inject(PARCELS_REPOSITORY) private readonly parcelsRepo: IParcelsRepository,
   ) {}
 
   async logEvent(dto: CreateEventDto): Promise<Parcel> {
-    const parcel = await this.parcelsRepo.findById(dto.parcel_id);
-    if (!parcel) throw new ResourceNotFoundError('Parcel', dto.parcel_id);
+    // #region cross-service: ParcelsService
+    const parcel = await this.parcelsService.findParcelById(dto.parcel_id);
+    // #endregion
 
     const targetStatus = EVENT_TO_STATUS[dto.event_type];
     if (targetStatus) {
-      // Route through ParcelsService so transition validation is never bypassed.
+      // #region cross-service: ParcelsService
       return this.parcelsService.updateStatus(dto.parcel_id, targetStatus);
+      // #endregion
     }
 
     const occurredAt = dto.occurred_at ? new Date(dto.occurred_at) : undefined;
@@ -44,8 +42,9 @@ export class DeliveryEventsService {
   }
 
   async getTimeline(parcelId: string): Promise<DeliveryEvent[]> {
-    const parcel = await this.parcelsRepo.findById(parcelId);
-    if (!parcel) throw new ResourceNotFoundError('Parcel', parcelId);
+    // #region cross-service: ParcelsService
+    await this.parcelsService.findParcelById(parcelId);
+    // #endregion
     return this.repo.findByParcelId(parcelId);
   }
 }

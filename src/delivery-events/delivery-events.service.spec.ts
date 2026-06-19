@@ -1,6 +1,6 @@
 import { InvalidStatusTransitionError } from '../common/exceptions/invalid-status-transition.error';
 import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
-import { DeliveryEvent, IParcelsRepository, Parcel } from '../parcels/parcels.repository';
+import { DeliveryEvent, Parcel } from '../parcels/parcels.repository';
 import { ParcelsService } from '../parcels/parcels.service';
 import { IDeliveryEventsRepository } from './delivery-events.repository';
 import { DeliveryEventsService } from './delivery-events.service';
@@ -41,19 +41,24 @@ function makeMockEventsRepo(): jest.Mocked<IDeliveryEventsRepository> {
   };
 }
 
+function makeMockParcelsService(): jest.Mocked<ParcelsService> {
+  return {
+    findParcelById: jest.fn(),
+    updateStatus: jest.fn(),
+  } as unknown as jest.Mocked<ParcelsService>;
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 describe('DeliveryEventsService', () => {
   let service: DeliveryEventsService;
   let eventsRepo: jest.Mocked<IDeliveryEventsRepository>;
   let parcelsService: jest.Mocked<ParcelsService>;
-  let parcelsRepo: jest.Mocked<IParcelsRepository>;
 
   beforeEach(() => {
     eventsRepo = makeMockEventsRepo();
-    parcelsService = { updateStatus: jest.fn() } as unknown as jest.Mocked<ParcelsService>;
-    parcelsRepo = { findById: jest.fn() } as unknown as jest.Mocked<IParcelsRepository>;
-    service = new DeliveryEventsService(eventsRepo, parcelsService, parcelsRepo);
+    parcelsService = makeMockParcelsService();
+    service = new DeliveryEventsService(eventsRepo, parcelsService);
   });
 
   // ── logEvent ─────────────────────────────────────────────────────────────────
@@ -70,12 +75,12 @@ describe('DeliveryEventsService', () => {
         async (eventType, expectedStatus) => {
           const parcel = makeParcel();
           const updatedParcel = makeParcel({ status: expectedStatus });
-          parcelsRepo.findById.mockResolvedValue(parcel);
+          parcelsService.findParcelById.mockResolvedValue(parcel);
           parcelsService.updateStatus.mockResolvedValue(updatedParcel);
 
           const result = await service.logEvent({ parcel_id: 'parcel-uuid-1', event_type: eventType });
 
-          expect(parcelsRepo.findById).toHaveBeenCalledWith('parcel-uuid-1');
+          expect(parcelsService.findParcelById).toHaveBeenCalledWith('parcel-uuid-1');
           expect(parcelsService.updateStatus).toHaveBeenCalledWith('parcel-uuid-1', expectedStatus);
           expect(eventsRepo.create).not.toHaveBeenCalled();
           expect(result).toBe(updatedParcel);
@@ -83,7 +88,7 @@ describe('DeliveryEventsService', () => {
       );
 
       it('propagates InvalidStatusTransitionError when transition is invalid', async () => {
-        parcelsRepo.findById.mockResolvedValue(makeParcel({ status: 'registered' }));
+        parcelsService.findParcelById.mockResolvedValue(makeParcel({ status: 'registered' }));
         parcelsService.updateStatus.mockRejectedValue(
           new InvalidStatusTransitionError('registered', 'out_for_delivery'),
         );
@@ -94,7 +99,7 @@ describe('DeliveryEventsService', () => {
       });
 
       it('rejects delivered event on registered parcel — confirms single-source-of-truth wiring', async () => {
-        parcelsRepo.findById.mockResolvedValue(makeParcel({ status: 'registered' }));
+        parcelsService.findParcelById.mockResolvedValue(makeParcel({ status: 'registered' }));
         parcelsService.updateStatus.mockRejectedValue(
           new InvalidStatusTransitionError('registered', 'delivered'),
         );
@@ -111,7 +116,7 @@ describe('DeliveryEventsService', () => {
     describe('non-status events', () => {
       it('logs requeued event directly via events repository without touching parcel status', async () => {
         const parcel = makeParcel();
-        parcelsRepo.findById.mockResolvedValue(parcel);
+        parcelsService.findParcelById.mockResolvedValue(parcel);
         eventsRepo.create.mockResolvedValue(makeEvent({ eventType: 'requeued' }));
 
         const result = await service.logEvent({ parcel_id: 'parcel-uuid-1', event_type: 'requeued' });
@@ -122,7 +127,7 @@ describe('DeliveryEventsService', () => {
       });
 
       it('passes notes through to the events repository', async () => {
-        parcelsRepo.findById.mockResolvedValue(makeParcel());
+        parcelsService.findParcelById.mockResolvedValue(makeParcel());
         eventsRepo.create.mockResolvedValue(makeEvent());
 
         await service.logEvent({
@@ -140,7 +145,7 @@ describe('DeliveryEventsService', () => {
       });
 
       it('parses occurred_at ISO string into a Date before passing to the repository', async () => {
-        parcelsRepo.findById.mockResolvedValue(makeParcel());
+        parcelsService.findParcelById.mockResolvedValue(makeParcel());
         eventsRepo.create.mockResolvedValue(makeEvent());
         const isoString = '2026-01-15T10:30:00.000Z';
 
@@ -160,7 +165,9 @@ describe('DeliveryEventsService', () => {
     });
 
     it('throws ResourceNotFoundError when parcel does not exist', async () => {
-      parcelsRepo.findById.mockResolvedValue(null);
+      parcelsService.findParcelById.mockRejectedValue(
+        new ResourceNotFoundError('Parcel', 'bad-parcel'),
+      );
 
       await expect(
         service.logEvent({ parcel_id: 'bad-parcel', event_type: 'picked_up' }),
@@ -180,12 +187,12 @@ describe('DeliveryEventsService', () => {
         makeEvent({ id: 'e2', eventType: 'picked_up', occurredAt: new Date('2026-01-01T10:00:00Z') }),
         makeEvent({ id: 'e3', eventType: 'out_for_delivery', occurredAt: new Date('2026-01-01T11:00:00Z') }),
       ];
-      parcelsRepo.findById.mockResolvedValue(makeParcel());
+      parcelsService.findParcelById.mockResolvedValue(makeParcel());
       eventsRepo.findByParcelId.mockResolvedValue(events);
 
       const result = await service.getTimeline('parcel-uuid-1');
 
-      expect(parcelsRepo.findById).toHaveBeenCalledWith('parcel-uuid-1');
+      expect(parcelsService.findParcelById).toHaveBeenCalledWith('parcel-uuid-1');
       expect(eventsRepo.findByParcelId).toHaveBeenCalledWith('parcel-uuid-1');
       expect(result).toBe(events);
       expect(result[0].eventType).toBe('registered');
@@ -194,7 +201,7 @@ describe('DeliveryEventsService', () => {
     });
 
     it('returns an empty array when parcel has no events yet', async () => {
-      parcelsRepo.findById.mockResolvedValue(makeParcel());
+      parcelsService.findParcelById.mockResolvedValue(makeParcel());
       eventsRepo.findByParcelId.mockResolvedValue([]);
 
       const result = await service.getTimeline('parcel-uuid-1');
@@ -203,7 +210,9 @@ describe('DeliveryEventsService', () => {
     });
 
     it('throws ResourceNotFoundError when parcel does not exist', async () => {
-      parcelsRepo.findById.mockResolvedValue(null);
+      parcelsService.findParcelById.mockRejectedValue(
+        new ResourceNotFoundError('Parcel', 'bad-parcel'),
+      );
 
       await expect(service.getTimeline('bad-parcel')).rejects.toThrow(ResourceNotFoundError);
       expect(eventsRepo.findByParcelId).not.toHaveBeenCalled();

@@ -1,25 +1,16 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConstraintViolationError } from '../common/exceptions/constraint-violation.error';
 import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
-import { IParcelsRepository, Parcel, PARCELS_REPOSITORY } from '../parcels/parcels.repository';
+import { Parcel } from '../parcels/parcels.repository';
+import { ParcelsService } from '../parcels/parcels.service';
 import { CreateAgentDto } from './dto/agent.schemas';
 import { Agent, AGENTS_REPOSITORY, IAgentsRepository } from './agents.repository';
 
-/**
- * Parcel assignment has two prerequisites:
- *
- * 1. Agent must be available (`is_available = true`).
- *    Dispatching to an off-duty agent would break delivery SLAs.
- *
- * 2. Parcel must be in `registered` status.
- *    Once pickup is underway the event trail is tied to the current agent;
- *    reassigning mid-transit would leave an inconsistent history.
- */
 @Injectable()
 export class AgentsService {
   constructor(
     @Inject(AGENTS_REPOSITORY) private readonly agentRepo: IAgentsRepository,
-    @Inject(PARCELS_REPOSITORY) private readonly parcelsRepo: IParcelsRepository,
+    @Inject(forwardRef(() => ParcelsService)) private readonly parcelsService: ParcelsService,
   ) {}
 
   async createAgent(dto: CreateAgentDto): Promise<Agent> {
@@ -37,20 +28,30 @@ export class AgentsService {
       throw new ConstraintViolationError('Agent is not available for assignment');
     }
 
-    const parcel = await this.parcelsRepo.findById(parcelId);
-    if (!parcel) throw new ResourceNotFoundError('Parcel', parcelId);
+    // #region cross-service: ParcelsService
+    const parcel = await this.parcelsService.findParcelById(parcelId);
     if (parcel.status !== 'registered') {
       throw new ConstraintViolationError(
         `Parcel must be in 'registered' status to be assigned (current: '${parcel.status}')`,
       );
     }
-
-    return this.parcelsRepo.assignAgent(parcelId, agentId);
+    return this.parcelsService.assignAgentToParcel(parcelId, agentId);
+    // #endregion
   }
 
   async getActiveDeliveries(agentId: string): Promise<Parcel[]> {
     const agent = await this.agentRepo.findById(agentId);
     if (!agent) throw new ResourceNotFoundError('Agent', agentId);
     return this.agentRepo.findActiveDeliveries(agentId);
+  }
+
+  // Called by ParcelsService during retry to validate the replacement agent.
+  // Kept here so all agent-availability rules stay in one place.
+  async validateAvailableAgent(agentId: string): Promise<void> {
+    const agent = await this.agentRepo.findById(agentId);
+    if (!agent) throw new ResourceNotFoundError('Agent', agentId);
+    if (!agent.isAvailable) {
+      throw new ConstraintViolationError('Agent is not available for assignment');
+    }
   }
 }

@@ -15,6 +15,8 @@ import {
   CreateParcelSchema,
   ListParcelsQueryDto,
   ListParcelsQuerySchema,
+  RetryParcelDto,
+  RetryParcelSchema,
   UpdateParcelStatusDto,
   UpdateParcelStatusSchema,
 } from './dto/parcel.schemas';
@@ -49,7 +51,10 @@ export class ParcelsController {
   }
 
   @Post(':id/retry')
-  retry(@Param('id') id: string) {
-    return this.service.retryParcel(id);
+  retry(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RetryParcelSchema)) dto: RetryParcelDto,
+  ) {
+    return this.service.retryParcel(id, dto.agent_id);
   }
 }

@@ -1,6 +1,7 @@
 import { ConstraintViolationError } from '../common/exceptions/constraint-violation.error';
 import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
-import { IParcelsRepository, Parcel } from '../parcels/parcels.repository';
+import { Parcel } from '../parcels/parcels.repository';
+import { ParcelsService } from '../parcels/parcels.service';
 import { Agent, IAgentsRepository } from './agents.repository';
 import { AgentsService } from './agents.service';
 
@@ -43,11 +44,11 @@ function makeMockAgentRepo(): jest.Mocked<IAgentsRepository> {
   };
 }
 
-function makeMockParcelsRepo(): jest.Mocked<Pick<IParcelsRepository, 'findById' | 'assignAgent'>> {
+function makeMockParcelsService(): jest.Mocked<ParcelsService> {
   return {
-    findById: jest.fn(),
-    assignAgent: jest.fn(),
-  };
+    findParcelById: jest.fn(),
+    assignAgentToParcel: jest.fn(),
+  } as unknown as jest.Mocked<ParcelsService>;
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -55,12 +56,12 @@ function makeMockParcelsRepo(): jest.Mocked<Pick<IParcelsRepository, 'findById' 
 describe('AgentsService', () => {
   let service: AgentsService;
   let agentRepo: jest.Mocked<IAgentsRepository>;
-  let parcelsRepo: jest.Mocked<IParcelsRepository>;
+  let parcelsService: jest.Mocked<ParcelsService>;
 
   beforeEach(() => {
     agentRepo = makeMockAgentRepo();
-    parcelsRepo = makeMockParcelsRepo() as jest.Mocked<IParcelsRepository>;
-    service = new AgentsService(agentRepo, parcelsRepo);
+    parcelsService = makeMockParcelsService();
+    service = new AgentsService(agentRepo, parcelsService);
   });
 
   // ── createAgent ─────────────────────────────────────────────────────────────
@@ -117,14 +118,14 @@ describe('AgentsService', () => {
       const assigned = makeParcel({ assignedAgentId: 'agent-uuid-1' });
 
       agentRepo.findById.mockResolvedValue(agent);
-      parcelsRepo.findById.mockResolvedValue(parcel);
-      parcelsRepo.assignAgent.mockResolvedValue(assigned);
+      parcelsService.findParcelById.mockResolvedValue(parcel);
+      parcelsService.assignAgentToParcel.mockResolvedValue(assigned);
 
       const result = await service.assignParcel('agent-uuid-1', 'parcel-uuid-1');
 
       expect(agentRepo.findById).toHaveBeenCalledWith('agent-uuid-1');
-      expect(parcelsRepo.findById).toHaveBeenCalledWith('parcel-uuid-1');
-      expect(parcelsRepo.assignAgent).toHaveBeenCalledWith('parcel-uuid-1', 'agent-uuid-1');
+      expect(parcelsService.findParcelById).toHaveBeenCalledWith('parcel-uuid-1');
+      expect(parcelsService.assignAgentToParcel).toHaveBeenCalledWith('parcel-uuid-1', 'agent-uuid-1');
       expect(result.assignedAgentId).toBe('agent-uuid-1');
     });
 
@@ -134,8 +135,8 @@ describe('AgentsService', () => {
       await expect(service.assignParcel('bad-agent', 'parcel-uuid-1')).rejects.toThrow(
         ResourceNotFoundError,
       );
-      expect(parcelsRepo.findById).not.toHaveBeenCalled();
-      expect(parcelsRepo.assignAgent).not.toHaveBeenCalled();
+      expect(parcelsService.findParcelById).not.toHaveBeenCalled();
+      expect(parcelsService.assignAgentToParcel).not.toHaveBeenCalled();
     });
 
     it('throws ConstraintViolationError when agent is not available', async () => {
@@ -147,24 +148,26 @@ describe('AgentsService', () => {
       await expect(service.assignParcel('agent-uuid-1', 'parcel-uuid-1')).rejects.toThrow(
         'not available',
       );
-      expect(parcelsRepo.findById).not.toHaveBeenCalled();
+      expect(parcelsService.findParcelById).not.toHaveBeenCalled();
     });
 
     it('throws ResourceNotFoundError when the parcel does not exist', async () => {
       agentRepo.findById.mockResolvedValue(makeAgent({ isAvailable: true }));
-      parcelsRepo.findById.mockResolvedValue(null);
+      parcelsService.findParcelById.mockRejectedValue(
+        new ResourceNotFoundError('Parcel', 'bad-parcel'),
+      );
 
       await expect(service.assignParcel('agent-uuid-1', 'bad-parcel')).rejects.toThrow(
         ResourceNotFoundError,
       );
-      expect(parcelsRepo.assignAgent).not.toHaveBeenCalled();
+      expect(parcelsService.assignAgentToParcel).not.toHaveBeenCalled();
     });
 
     it.each(['picked_up', 'out_for_delivery', 'delivered', 'failed'] as const)(
       'throws ConstraintViolationError when parcel is in %s status',
       async (status) => {
         agentRepo.findById.mockResolvedValue(makeAgent({ isAvailable: true }));
-        parcelsRepo.findById.mockResolvedValue(makeParcel({ status }));
+        parcelsService.findParcelById.mockResolvedValue(makeParcel({ status }));
 
         await expect(service.assignParcel('agent-uuid-1', 'parcel-uuid-1')).rejects.toThrow(
           ConstraintViolationError,
@@ -172,7 +175,7 @@ describe('AgentsService', () => {
         await expect(service.assignParcel('agent-uuid-1', 'parcel-uuid-1')).rejects.toThrow(
           'registered',
         );
-        expect(parcelsRepo.assignAgent).not.toHaveBeenCalled();
+        expect(parcelsService.assignAgentToParcel).not.toHaveBeenCalled();
       },
     );
   });
@@ -197,7 +200,6 @@ describe('AgentsService', () => {
 
     it('does not return delivered or failed parcels (repo contract, verified via mock)', async () => {
       const agent = makeAgent();
-      // The repository filters out delivered/failed; the service returns whatever the repo gives
       const activeOnly = [makeParcel({ status: 'picked_up', assignedAgentId: 'agent-uuid-1' })];
       agentRepo.findById.mockResolvedValue(agent);
       agentRepo.findActiveDeliveries.mockResolvedValue(activeOnly);
@@ -213,6 +215,32 @@ describe('AgentsService', () => {
 
       await expect(service.getActiveDeliveries('bad-id')).rejects.toThrow(ResourceNotFoundError);
       expect(agentRepo.findActiveDeliveries).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── validateAvailableAgent ──────────────────────────────────────────────────
+
+  describe('validateAvailableAgent', () => {
+    it('resolves without a value when agent exists and is available', async () => {
+      agentRepo.findById.mockResolvedValue(makeAgent({ isAvailable: true }));
+
+      await expect(service.validateAvailableAgent('agent-uuid-1')).resolves.toBeUndefined();
+      expect(agentRepo.findById).toHaveBeenCalledWith('agent-uuid-1');
+    });
+
+    it('throws ResourceNotFoundError when agent does not exist', async () => {
+      agentRepo.findById.mockResolvedValue(null);
+
+      await expect(service.validateAvailableAgent('bad-id')).rejects.toThrow(ResourceNotFoundError);
+    });
+
+    it('throws ConstraintViolationError when agent is not available', async () => {
+      agentRepo.findById.mockResolvedValue(makeAgent({ isAvailable: false }));
+
+      await expect(service.validateAvailableAgent('agent-uuid-1')).rejects.toThrow(
+        ConstraintViolationError,
+      );
+      await expect(service.validateAvailableAgent('agent-uuid-1')).rejects.toThrow('not available');
     });
   });
 });

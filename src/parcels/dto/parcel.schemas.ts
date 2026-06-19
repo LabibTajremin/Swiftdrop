@@ -24,6 +24,11 @@ export const UpdateParcelStatusSchema = z.object({
 });
 export type UpdateParcelStatusDto = z.infer<typeof UpdateParcelStatusSchema>;
 
+export const RetryParcelSchema = z.object({
+  agent_id: z.string().uuid('agent_id must be a valid UUID').optional(),
+});
+export type RetryParcelDto = z.infer<typeof RetryParcelSchema>;
+
 export const ListParcelsQuerySchema = z.object({
   status: z.enum(PARCEL_STATUSES).optional(),
   agent_id: z.string().uuid('agent_id must be a valid UUID').optional(),

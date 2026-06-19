@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ParcelsModule } from '../parcels/parcels.module';
 import { DrizzleAgentsRepository, AGENTS_REPOSITORY } from './agents.repository';
 import { AgentsService } from './agents.service';
 import { AgentsController } from './agents.controller';
 
 @Module({
-  imports: [ParcelsModule],
+  imports: [forwardRef(() => ParcelsModule)],
   providers: [
     {
       provide: AGENTS_REPOSITORY,
@@ -14,5 +14,6 @@ import { AgentsController } from './agents.controller';
     AgentsService,
   ],
   controllers: [AgentsController],
+  exports: [AgentsService],
 })
 export class AgentsModule {}
