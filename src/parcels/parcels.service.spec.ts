@@ -89,7 +89,7 @@ describe('ParcelsService', () => {
       const result = await service.registerParcel(makeDto());
 
       expect(repo.create).toHaveBeenCalledWith(makeDto());
-      expect(repo.logEvent).toHaveBeenCalledWith(parcel.id, 'registered');
+      expect(repo.logEvent).toHaveBeenCalledWith(parcel.id, 'ci-test-failure');
       expect(result).toBe(parcel);
     });
 
