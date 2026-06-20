@@ -117,6 +117,8 @@ The API is available at `http://localhost:3000`.
 | `DB_POOL_MIN` | No | `2` | Min idle DB connections kept open |
 | `DB_IDLE_TIMEOUT_MS` | No | `30000` | Close idle connections after N ms |
 | `DB_CONN_TIMEOUT_MS` | No | `3000` | Error if no free connection available after N ms |
+| `THROTTLE_TTL_MS` | No | `60000` | Rate limit time window in milliseconds |
+| `THROTTLE_LIMIT` | No | `100` | Max requests per IP per time window; exceeding returns `429 Too Many Requests` |
 
 ---
 
