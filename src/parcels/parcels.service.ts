@@ -28,20 +28,23 @@ export class ParcelsService {
   ) {}
 
   async registerParcel(dto: CreateParcelDto): Promise<Parcel> {
-    const parcel = await this.repo.create(dto);
-    await this.repo.logEvent(parcel.id, 'registered');
-    return parcel;
+    return this.repo.transaction(async (repo) => {
+      const parcel = await repo.create(dto);
+      await repo.logEvent(parcel.id, 'registered');
+      return parcel;
+    });
   }
 
   async updateStatus(id: string, newStatus: ParcelStatus): Promise<Parcel> {
     const parcel = await this.repo.findById(id);
     if (!parcel) throw new ResourceNotFoundError('Parcel', id);
-
     assertValidTransition(parcel.status, newStatus);
 
-    const updated = await this.repo.updateStatus(id, newStatus);
-    await this.repo.logEvent(id, STATUS_TO_EVENT[newStatus]);
-    return updated;
+    return this.repo.transaction(async (repo) => {
+      const updated = await repo.updateStatus(id, newStatus);
+      await repo.logEvent(id, STATUS_TO_EVENT[newStatus]);
+      return updated;
+    });
   }
 
   async getTrackingHistory(id: string): Promise<DeliveryEvent[]> {
@@ -66,15 +69,23 @@ export class ParcelsService {
 
     if (agentId !== undefined) {
       // #region cross-service: AgentsService
+      // Intentionally outside the transaction — read-only availability check.
+      // A TOCTOU race (agent becomes unavailable between this check and the writes)
+      // is pre-existing and accepted; closing it would require threading the active
+      // transaction into AgentsService, reversing the service-boundary from 4e315bf.
       await this.agentsService.validateAvailableAgent(agentId);
       // #endregion
-      await this.repo.assignAgent(id, agentId);
     }
 
-    await this.repo.logEvent(id, 'requeued');
-    const updated = await this.repo.updateStatus(id, 'picked_up');
-    await this.repo.logEvent(id, 'picked_up');
-    return updated;
+    return this.repo.transaction(async (repo) => {
+      if (agentId !== undefined) {
+        await repo.assignAgent(id, agentId);
+      }
+      await repo.logEvent(id, 'requeued');
+      const updated = await repo.updateStatus(id, 'picked_up');
+      await repo.logEvent(id, 'picked_up');
+      return updated;
+    });
   }
 
   // #region Service-to-service – surface exposed for AgentsService

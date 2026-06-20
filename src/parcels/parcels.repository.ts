@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, count, eq, ilike } from 'drizzle-orm';
 import { InferSelectModel } from 'drizzle-orm';
-import { DRIZZLE_TOKEN, DrizzleDB } from '../db/drizzle.provider';
+import { DRIZZLE_TOKEN, DrizzleDB, DrizzleTransaction } from '../db/drizzle.provider';
 import * as schema from '../db/schema';
 import { ConstraintViolationError } from '../common/exceptions/constraint-violation.error';
 import { ResourceNotFoundError } from '../common/exceptions/resource-not-found.error';
@@ -22,13 +22,14 @@ export interface IParcelsRepository {
   assignAgent(id: string, agentId: string): Promise<Parcel>;
   logEvent(parcelId: string, eventType: DeliveryEventType, notes?: string): Promise<void>;
   getHistory(parcelId: string): Promise<DeliveryEvent[]>;
+  transaction<T>(fn: (repo: IParcelsRepository) => Promise<T>): Promise<T>;
 }
 
 export const PARCELS_REPOSITORY = 'PARCELS_REPOSITORY';
 
 @Injectable()
 export class DrizzleParcelsRepository implements IParcelsRepository {
-  constructor(@Inject(DRIZZLE_TOKEN) private readonly db: DrizzleDB) {}
+  constructor(@Inject(DRIZZLE_TOKEN) private readonly db: DrizzleDB | DrizzleTransaction) {}
 
   async create(dto: CreateParcelDto): Promise<Parcel> {
     try {
@@ -144,6 +145,10 @@ export class DrizzleParcelsRepository implements IParcelsRepository {
       .from(schema.deliveryEvents)
       .where(eq(schema.deliveryEvents.parcelId, parcelId))
       .orderBy(schema.deliveryEvents.occurredAt);
+  }
+
+  async transaction<T>(fn: (repo: IParcelsRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new DrizzleParcelsRepository(tx)));
   }
 }
 

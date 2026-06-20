@@ -7,6 +7,8 @@ import * as schema from './schema';
 export const DRIZZLE_TOKEN = 'DRIZZLE_DB';
 
 export type DrizzleDB = NodePgDatabase<typeof schema>;
+// Derived from DrizzleDB so it stays in sync if drizzle-orm's transaction type changes.
+export type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 
 export const DrizzleProvider: Provider = {
   provide: DRIZZLE_TOKEN,

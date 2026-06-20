@@ -1,16 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { DRIZZLE_TOKEN, DrizzleDB } from '../db/drizzle.provider';
-import * as schema from '../db/schema';
-import { DeliveryEvent, Parcel } from '../parcels/parcels.repository';
 
-export interface ParcelWithEvents {
-  parcel: Parcel;
-  events: DeliveryEvent[];
+export interface AgentDeliveryStats {
+  deliveredCount: number;
+  failedCount: number;
+  avgPickupToDeliveryMs: number | null;
 }
 
 export interface IReportingRepository {
-  getAgentDeliveryData(agentId: string): Promise<ParcelWithEvents[]>;
+  getAgentDeliveryStats(agentId: string): Promise<AgentDeliveryStats>;
 }
 
 export const REPORTING_REPOSITORY = 'REPORTING_REPOSITORY';
@@ -19,36 +18,61 @@ export const REPORTING_REPOSITORY = 'REPORTING_REPOSITORY';
 export class DrizzleReportingRepository implements IReportingRepository {
   constructor(@Inject(DRIZZLE_TOKEN) private readonly db: DrizzleDB) {}
 
-  async getAgentDeliveryData(agentId: string): Promise<ParcelWithEvents[]> {
-    const parcels = await this.db
-      .select()
-      .from(schema.parcels)
-      .where(
-        and(
-          eq(schema.parcels.assignedAgentId, agentId),
-          inArray(schema.parcels.status, ['delivered', 'failed']),
-        ),
-      );
+  async getAgentDeliveryStats(agentId: string): Promise<AgentDeliveryStats> {
+    const result = await this.db.execute<{
+      delivered_count: string;
+      failed_count: string;
+      avg_pickup_to_delivery_ms: string | null;
+    }>(sql`
+      WITH pickup_times AS (
+        SELECT parcel_id, MIN(occurred_at) AS occurred_at
+        FROM delivery_events
+        WHERE event_type = 'picked_up'
+        GROUP BY parcel_id
+      ),
+      delivery_times AS (
+        SELECT parcel_id, MAX(occurred_at) AS occurred_at
+        FROM delivery_events
+        WHERE event_type = 'delivered'
+        GROUP BY parcel_id
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE p.status = 'delivered') AS delivered_count,
+        COUNT(*) FILTER (WHERE p.status = 'failed')    AS failed_count,
+        AVG(
+          EXTRACT(EPOCH FROM (dt.occurred_at - pt.occurred_at)) * 1000
+        ) FILTER (
+          WHERE p.status = 'delivered'
+            AND pt.occurred_at IS NOT NULL
+            AND dt.occurred_at IS NOT NULL
+        ) AS avg_pickup_to_delivery_ms
+      FROM parcels p
+      LEFT JOIN pickup_times pt ON pt.parcel_id = p.id
+      LEFT JOIN delivery_times dt ON dt.parcel_id = p.id
+      WHERE p.assigned_agent_id = ${agentId}
+        AND p.status IN ('delivered', 'failed')
+    `);
 
-    if (parcels.length === 0) return [];
-
-    const parcelIds = parcels.map((p) => p.id);
-    const events = await this.db
-      .select()
-      .from(schema.deliveryEvents)
-      .where(inArray(schema.deliveryEvents.parcelId, parcelIds))
-      .orderBy(schema.deliveryEvents.occurredAt);
-
-    const eventsByParcel = new Map<string, DeliveryEvent[]>();
-    for (const event of events) {
-      const list = eventsByParcel.get(event.parcelId) ?? [];
-      list.push(event);
-      eventsByParcel.set(event.parcelId, list);
+    const row = result.rows[0];
+    if (!row) {
+      return { deliveredCount: 0, failedCount: 0, avgPickupToDeliveryMs: null };
     }
 
-    return parcels.map((parcel) => ({
-      parcel,
-      events: eventsByParcel.get(parcel.id) ?? [],
-    }));
+    return {
+      deliveredCount: Number(row.delivered_count),
+      failedCount: Number(row.failed_count),
+      // Check === null before Number() — Number(null) === 0, which would wrongly
+      // turn "no timing data" into "zero ms average".
+      // Number(null) === 0, so guard before converting — "no timing data" must stay null.
+      // PERFORMANCE NOTE: if delivery_events grows very large (millions of rows), the CTE
+      // approach above scans all pickup/delivery events before filtering by agent. Switch to
+      // LEFT JOIN LATERAL with per-parcel correlated subqueries instead — each subquery runs
+      // only against the rows for that parcel and can use (parcel_id, event_type, occurred_at)
+      // index efficiently. Trade-off: LATERAL is Postgres-specific and harder to read.
+      avgPickupToDeliveryMs:
+        row.avg_pickup_to_delivery_ms === null
+          ? null
+          : Number(row.avg_pickup_to_delivery_ms),
+    };
   }
 }

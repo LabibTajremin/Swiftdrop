@@ -56,7 +56,7 @@ function makeDto(overrides: Partial<CreateParcelDto> = {}): CreateParcelDto {
 }
 
 function makeMockRepo(): jest.Mocked<IParcelsRepository> {
-  return {
+  const repo: jest.Mocked<IParcelsRepository> = {
     create: jest.fn(),
     findById: jest.fn(),
     findByTrackingNumber: jest.fn(),
@@ -65,7 +65,11 @@ function makeMockRepo(): jest.Mocked<IParcelsRepository> {
     assignAgent: jest.fn(),
     logEvent: jest.fn(),
     getHistory: jest.fn(),
+    // Runs the callback with the same mock so existing expect(repo.X) assertions
+    // keep working unchanged — the service sees the same recorded calls.
+    transaction: jest.fn((fn) => fn(repo)) as jest.Mocked<IParcelsRepository>['transaction'],
   };
+  return repo;
 }
 
 function makeMockAgentsService(): jest.Mocked<AgentsService> {
