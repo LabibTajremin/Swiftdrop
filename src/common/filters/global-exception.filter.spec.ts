@@ -100,13 +100,13 @@ describe('GlobalExceptionFilter', () => {
       });
     });
 
-    it('maps InvalidStatusTransitionError → 400 Bad Request', () => {
+    it('maps InvalidStatusTransitionError → 422 Unprocessable Entity', () => {
       const { host, code, send } = buildHost();
       filter.catch(new InvalidStatusTransitionError('registered', 'delivered'), host);
-      expect(code).toHaveBeenCalledWith(400);
+      expect(code).toHaveBeenCalledWith(422);
       expect(lastBody(send)).toMatchObject({
-        statusCode: 400,
-        error: 'Bad Request',
+        statusCode: 422,
+        error: 'Unprocessable Entity',
         message: 'Invalid status transition: registered -> delivered',
       });
     });

@@ -16,6 +16,7 @@ const STATUS_TEXTS: Record<number, string> = {
   403: 'Forbidden',
   404: 'Not Found',
   409: 'Conflict',
+  422: 'Unprocessable Entity',
   500: 'Internal Server Error',
 };
 
@@ -57,7 +58,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof InvalidStatusTransitionError) {
-      return { statusCode: HttpStatus.BAD_REQUEST, message: exception.message };
+      return { statusCode: HttpStatus.UNPROCESSABLE_ENTITY, message: exception.message };
     }
 
     if (exception instanceof ConstraintViolationError) {
@@ -89,7 +90,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else {
         message = r.message ?? exception.message;
       }
-    } else {
+    } 
+    else {
       message = exception.message;
     }
 
